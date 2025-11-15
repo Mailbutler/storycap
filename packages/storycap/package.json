@@ -87,7 +87,7 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "@prantlf/storycrawler": "^7.0.0",
+    "@prantlf/storycrawler": "^8.0.0",
     "picomatch": "^4.0.3",
     "puppeteer-core": "^24.30.0",
     "rimraf": "^6.1.0",
