@@ -13,7 +13,7 @@ async function detectRunMode(storiesBrowser: StoriesBrowser, opt: MainOptions) {
   await storiesBrowser.page.goto(opt.serverOptions.storybookUrl);
   await sleep(100);
 
-  // We can check whether the secret value is set by `register.js` or not.
+  // We can check whether the secret value is set by `manager.js` or not.
   const registered: boolean | undefined = await storiesBrowser.page.evaluate(
     () => (window as any).__STORYCAP_MANAGED_MODE_REGISTERED__,
   );
