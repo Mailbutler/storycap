@@ -112,10 +112,7 @@ function linux(_canary = false) {
   let installations: string[] = [];
 
   // Look into the directories where .desktop are saved on gnome based distro's
-  const desktopInstallationFolders = [
-    path.join(homedir(), '.local/share/applications/'),
-    '/usr/share/applications/',
-  ];
+  const desktopInstallationFolders = [path.join(homedir(), '.local/share/applications/'), '/usr/share/applications/'];
   desktopInstallationFolders.forEach(folder => {
     installations = installations.concat(findChromeExecutables(folder));
   });

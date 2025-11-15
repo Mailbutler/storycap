@@ -6,8 +6,7 @@ export class Logger {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   color: any = picocolors;
 
-  constructor(public level: LogLevel = 'normal') {
-  }
+  constructor(public level: LogLevel = 'normal') {}
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debug(...msg: any[]) {

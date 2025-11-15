@@ -90,7 +90,7 @@ export class StoryPreviewBrowser extends BaseBrowser {
    * Logs debug message with the index number
    *
    **/
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected debug(...args: any[]) {
     this.logger.debug.apply(this.logger, [`[cid: ${this.idx}]`, ...args]);
   }
