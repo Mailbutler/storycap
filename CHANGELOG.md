@@ -1,5 +1,20 @@
 # Changes
 
+## [8.0.0](https://github.com/prantlf/storycap/compare/v7.0.0...v8.0.0) (2025-11-15)
+
+### Features
+
+* Rename export /register to /manager for managed mode in Storybook 10 ([fa0e245](https://github.com/prantlf/storycap/commit/fa0e245e7243749da7a0bd6fc9254a1d5a18c222))
+* Upgrade dependencies ([75a6748](https://github.com/prantlf/storycap/commit/75a6748a8c87ef939b47e7cce33ab022812a152b))
+
+### BREAKING CHANGES
+
+If you refeirred directly to `@prantlf/storycap/register`,
+remove the `/register` path. Use just `@prantlf/storycap` in the `addons`
+property in `main.js`. It was the usual and documented way to register
+this addons, so you probably did it anyway and this change won't be
+breaking for you.
+
 ## [7.0.0](https://github.com/prantlf/storycap/compare/v6.0.0...v7.0.0) (2025-10-31)
 
 ### Features
