@@ -11,7 +11,7 @@ const argv = minimist(process.argv.slice(2));
 /**
  * This script sets up for Storybook examples.
  *
- * Because of Storybook addon channel restriction, storycap addon(client, e.g. register.js) code
+ * Because of Storybook addon channel restriction, storycap addon(client, e.g. manager.js) code
  * should be put under each Storybook project's node_modules directory.
  *
  * This script does:
@@ -41,7 +41,6 @@ async function main() {
   copyDir.sync(`${path.join(prjDir, 'lib')}`, path.join(dist, 'lib'), {});
   copyDir.sync(`${path.join(prjDir, 'lib-esm')}`, path.join(dist, 'lib-esm'), {});
   fs.copyFileSync(path.resolve(prjDir, 'package.json'), path.resolve(dist, 'package.json'));
-  fs.copyFileSync(path.resolve(prjDir, 'register.js'), path.resolve(dist, 'register.js'));
   rimraf.sync(path.resolve(dist, '../.bin/storycap'));
   fs.mkdirSync(path.resolve(dist, '../.bin'), { recursive: true });
   fs.symlinkSync(path.resolve(prjDir, 'lib/node/cli.js'), path.resolve(dist, '../.bin/storycap'));
