@@ -41,10 +41,10 @@ async function main() {
   copyDir.sync(`${path.join(prjDir, 'lib')}`, path.join(dist, 'lib'), {});
   copyDir.sync(`${path.join(prjDir, 'lib-esm')}`, path.join(dist, 'lib-esm'), {});
   fs.copyFileSync(path.resolve(prjDir, 'package.json'), path.resolve(dist, 'package.json'));
-  rimraf.sync(path.resolve(dist, '../.bin/storycap'));
-  fs.mkdirSync(path.resolve(dist, '../.bin'), { recursive: true });
-  fs.symlinkSync(path.resolve(prjDir, 'lib/node/cli.js'), path.resolve(dist, '../.bin/storycap'));
-  fs.chmodSync(path.resolve(dist, '../.bin/storycap'), 0o775);
+  rimraf.sync(path.resolve(dist, '../../.bin/storycap'));
+  fs.mkdirSync(path.resolve(dist, '../../.bin'), { recursive: true });
+  fs.symlinkSync(path.resolve(prjDir, 'lib/node/cli.js'), path.resolve(dist, '../../.bin/storycap'));
+  fs.chmodSync(path.resolve(dist, '../../.bin/storycap'), 0o775);
   return 0;
 }
 
