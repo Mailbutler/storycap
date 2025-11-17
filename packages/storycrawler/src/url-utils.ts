@@ -1,23 +1,31 @@
 /**
  *
- * Cuts search and hash parts of a URL off a URL
+ * Completes the URL to the iframe with stories with `search` and `hash` parts of the connection URL
  *
- * @param url - An absolute URL, optionally with search and hash parts
- * @returns The input URl with the search and hash parts cau off
+ * @param connectionUrl - An absolute URL to the Storybook web site
+ * @param relativeIframeUrl - A relative URL to the iframe with stories
+ * @returns An absolute URL to the iframe with stories with `search` and `hash` parts of the connection URL
  *
  **/
-export function getUrlWithoutSearchAndHash(url: string): string {
-  // Do not use new URL(path, connectionUrl), to concatenate a path to a page to
-  // the connection URL. The URL constructor would cut the last name on the path
-  // as a file to append the new path to the last directory on the original path,
-  // but the original implementation just appended '/iframe.html' to the
-  // connection URL.
-  const urlObject = new URL(url);
-  urlObject.search = '';
-  urlObject.hash = '';
-  let baseUrl = urlObject.toString();
-  if (baseUrl.endsWith('/')) {
-    baseUrl = baseUrl.slice(0, -1);
+export function completeIframeUrl(connectionUrl: string, relativeIframeUrl: string): string {
+  const connectionUrlObject = new URL(connectionUrl);
+  // Treat the connection URL as a URL to a directory, when appending
+  // the relative path to it. The original implementation just appended
+  // '/iframe.html' to the connection URL.
+  if (!connectionUrlObject.pathname.endsWith('/')) {
+    connectionUrlObject.pathname += '/';
   }
-  return baseUrl;
+  const iframeUrlObject = new URL(relativeIframeUrl, connectionUrlObject.href);
+  const { search: iframeSearch } = iframeUrlObject;
+  let { search: connectionSearch } = connectionUrlObject;
+  // Append the search part from the connection URL to the iframe URL
+  if (connectionSearch) {
+    if (iframeSearch) {
+      connectionSearch = '&' + connectionSearch.slice(1);
+    }
+    iframeUrlObject.search += connectionSearch;
+  }
+  // Set the hash part from the connection URL to the iframe URL
+  iframeUrlObject.hash = connectionUrlObject.hash;
+  return iframeUrlObject.href;
 }
