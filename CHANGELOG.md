@@ -1,5 +1,11 @@
 # Changes
 
+## [8.1.1](https://github.com/prantlf/storycap/compare/v8.1.0...v8.1.1) (2025-11-17)
+
+### Bug Fixes
+
+* Append search part from connection URL to iframe URL ([0522307](https://github.com/prantlf/storycap/commit/052230788160e50932a0f7f68eb96af55051c92f))
+
 ## [8.1.0](https://github.com/prantlf/storycap/compare/v8.0.0...v8.1.0) (2025-11-17)
 
 ### Features

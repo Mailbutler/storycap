@@ -16,6 +16,7 @@ This is a fork of the original project with the following enhancements:
 - Support for Storybook 10 and newer [#1015](https://github.com/reg-viz/storycap/pull/1015)
 - Up-to-date dependencies [#1016](https://github.com/reg-viz/storycap/pull/1016)
 - Possible to disable `nextStep()` advancement in headful browser mode [#1017](https://github.com/reg-viz/storycap/pull/1017)
+- Preserve the `search` and `hash` parts of the Storybook connection URL and appends them to the Storybook iframe story URL to be able to use them in the story implementation during the runtime [#1018](https://github.com/reg-viz/storycap/pull/1018)
 
 <!-- toc -->
 

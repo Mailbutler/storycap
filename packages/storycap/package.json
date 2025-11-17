@@ -1,6 +1,6 @@
 {
   "name": "@prantlf/storycap",
-  "version": "8.1.0",
+  "version": "8.1.1",
   "description": "A Storybook addon, Save the screenshot image of your stories! via puppeteer.",
   "engines": {
     "node": ">=20.11"
@@ -87,7 +87,7 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "@prantlf/storycrawler": "^8.1.0",
+    "@prantlf/storycrawler": "^8.1.1",
     "picomatch": "^4.0.3",
     "puppeteer-core": "^24.30.0",
     "rimraf": "^6.1.0",
