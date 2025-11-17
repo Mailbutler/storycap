@@ -3,6 +3,7 @@ import { Story } from '../story-types';
 import { Logger } from '../logger';
 import { sleep } from '../async-utils';
 import { StorybookConnection } from '../storybook-connection';
+import { getUrlWithoutSearchAndHash } from '../url-utils';
 
 const dummyStory: Story = {
   version: 'v5',
@@ -43,7 +44,8 @@ export class StoryPreviewBrowser extends BaseBrowser {
    **/
   async boot() {
     await super.boot();
-    await this.page.goto(this.connection.url + '/iframe.html?selectedKind=scszisui&selectedStory=scszisui', {
+    const baseUrl = getUrlWithoutSearchAndHash(this.connection.url);
+    await this.page.goto(baseUrl + '/iframe.html?selectedKind=scszisui&selectedStory=scszisui', {
       timeout: 60_000,
       waitUntil: 'domcontentloaded',
     });
