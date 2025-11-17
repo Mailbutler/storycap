@@ -3,6 +3,7 @@ import { Logger } from '../logger.js';
 import { NoStoriesError, StoriesTimeoutError } from '../errors.js';
 import { Story } from '../story-types.js';
 import { StorybookConnection } from '../storybook-connection.js';
+import { getUrlWithoutSearchAndHash } from '../url-utils.js';
 
 interface API {
   storyStore?: {
@@ -63,12 +64,11 @@ export class StoriesBrowser extends BaseBrowser {
     await this.page.goto(this.connection.url);
     let stories: Story[] | null = null;
 
+    const baseUrl = getUrlWithoutSearchAndHash(this.connection.url);
     // Note:
     // Don't wait fo this `goto` promise. Sometimes Chromimue emits timeout error and this navigation and causes whole screenshot process abortion.
     // For detail, see https://github.com/reg-viz/storycap/issues/896#issuecomment-2317248668
-    this.page.goto(
-      this.connection.url + '/iframe.html?selectedKind=story-crawler-kind&selectedStory=story-crawler-story',
-    );
+    this.page.goto(baseUrl + '/iframe.html?selectedKind=story-crawler-kind&selectedStory=story-crawler-story');
 
     await this.page.waitForFunction(
       () =>
