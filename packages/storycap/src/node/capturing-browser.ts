@@ -433,7 +433,18 @@ export class CapturingBrowser extends StoryPreviewBrowser {
 
       if (this.mode === 'managed') {
         // Screenshot options are emitted form the browser process when managed mode.
-        emittedScreenshotOptions = await this.waitForOptionsFromBrowser();
+        try {
+          emittedScreenshotOptions = await this.waitForOptionsFromBrowser();
+        } catch (error) {
+          if (error instanceof ScreenshotTimeoutError) {
+            this.opt.logger.warn(
+              `Capture trigger was not emitted for ${story.kind}/${story.story}. Falling back to CLI screenshot options.`,
+            );
+            emittedScreenshotOptions = pickupWithVariantKey(this.baseScreenshotOptions, this.currentVariantKey);
+          } else {
+            throw error;
+          }
+        }
         if (!this.currentStory) {
           throw new InvalidCurrentStoryStateError();
         }
