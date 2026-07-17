@@ -23,6 +23,7 @@ import {
 } from '../shared/screenshot-options-helper.js';
 import { Logger } from './logger.js';
 import { FileSystem } from './file.js';
+import { isRecoverableNavigationContextError } from './recoverable-error.js';
 
 /**
  *
@@ -486,6 +487,22 @@ export class CapturingBrowser extends StoryPreviewBrowser {
         variantKeysToPush,
         defaultVariantSuffix,
       };
+    } catch (error) {
+      if (isRecoverableNavigationContextError(error) && this.currentStory) {
+        if (this.currentStoryRetryCount < this.opt.captureMaxRetryCount) {
+          this.opt.logger.warn(
+            `Recovered a transient browser navigation race while capturing ${this.currentStory.kind}/${this.currentStory.story}. ` +
+              `Retrying (${this.currentStoryRetryCount + 1}/${this.opt.captureMaxRetryCount}).`,
+          );
+          return { buffer: null, succeeded: false, variantKeysToPush: [], defaultVariantSuffix: '' };
+        }
+
+        throw new Error(
+          `Failed to capture ${this.currentStory.kind}/${this.currentStory.story} after ${this.opt.captureMaxRetryCount} retries: ${error.message}`,
+          { cause: error },
+        );
+      }
+      throw error;
     } finally {
       this.page.off('console', onConsoleLog);
 
