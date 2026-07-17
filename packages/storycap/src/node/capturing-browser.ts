@@ -58,6 +58,7 @@ export class CapturingBrowser extends StoryPreviewBrowser {
   private currentVariantKey: VariantKey = { isDefault: true, keys: [] };
   private touched = false;
   private resourceWatcher!: ResourceWatcher;
+  private readonly interactionSelectorWaitTimeout = 1500;
 
   /**
    *
@@ -284,9 +285,25 @@ export class CapturingBrowser extends StoryPreviewBrowser {
     }
   }
 
+  private isRecoverableInteractionSelectorError(error: unknown) {
+    return error instanceof Error && error.message.includes('No element found for selector:');
+  }
+
+  private async waitForInteractionTarget(selector: string) {
+    try {
+      await this.page.waitForSelector(selector, { timeout: this.interactionSelectorWaitTimeout });
+      return true;
+    } catch {
+      await this.warnIfTargetElementNotFound(selector);
+      return false;
+    }
+  }
+
   private async setHover(screenshotOptions: StrictScreenshotOptions) {
     if (!screenshotOptions.hover) return;
-    await this.warnIfTargetElementNotFound(screenshotOptions.hover);
+    if (!(await this.waitForInteractionTarget(screenshotOptions.hover))) {
+      throw new Error(`No element found for selector: ${screenshotOptions.hover}`);
+    }
     await this.page.hover(screenshotOptions.hover);
     this.touched = true;
     return;
@@ -294,7 +311,9 @@ export class CapturingBrowser extends StoryPreviewBrowser {
 
   private async setFocus(screenshotOptions: StrictScreenshotOptions) {
     if (!screenshotOptions.focus) return;
-    await this.warnIfTargetElementNotFound(screenshotOptions.focus);
+    if (!(await this.waitForInteractionTarget(screenshotOptions.focus))) {
+      throw new Error(`No element found for selector: ${screenshotOptions.focus}`);
+    }
     await this.page.focus(screenshotOptions.focus);
     this.touched = true;
     return;
@@ -302,7 +321,9 @@ export class CapturingBrowser extends StoryPreviewBrowser {
 
   private async setClick(screenshotOptions: StrictScreenshotOptions) {
     if (!screenshotOptions.click) return;
-    await this.warnIfTargetElementNotFound(screenshotOptions.click);
+    if (!(await this.waitForInteractionTarget(screenshotOptions.click))) {
+      throw new Error(`No element found for selector: ${screenshotOptions.click}`);
+    }
     await this.page.click(screenshotOptions.click);
     this.touched = true;
     return;
@@ -488,11 +509,14 @@ export class CapturingBrowser extends StoryPreviewBrowser {
         defaultVariantSuffix,
       };
     } catch (error) {
-      if (isRecoverableNavigationContextError(error) && this.currentStory) {
+      if (
+        (isRecoverableNavigationContextError(error) || this.isRecoverableInteractionSelectorError(error)) &&
+        this.currentStory
+      ) {
         if (this.currentStoryRetryCount < this.opt.captureMaxRetryCount) {
           this.opt.logger.warn(
-            `Recovered a transient browser navigation race while capturing ${this.currentStory.kind}/${this.currentStory.story}. ` +
-              `Retrying (${this.currentStoryRetryCount + 1}/${this.opt.captureMaxRetryCount}).`,
+            `Recovered a transient browser capture race while capturing ${this.currentStory.kind}/${this.currentStory.story}. ` +
+              `Retrying (${this.currentStoryRetryCount + 1}/${this.opt.captureMaxRetryCount}). Reason: ${error instanceof Error ? error.message : String(error)}`,
           );
           return { buffer: null, succeeded: false, variantKeysToPush: [], defaultVariantSuffix: '' };
         }
