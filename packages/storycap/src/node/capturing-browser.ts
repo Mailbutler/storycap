@@ -497,9 +497,9 @@ export class CapturingBrowser extends StoryPreviewBrowser {
           return { buffer: null, succeeded: false, variantKeysToPush: [], defaultVariantSuffix: '' };
         }
 
+        const errorMessage = error instanceof Error ? error.message : String(error);
         throw new Error(
-          `Failed to capture ${this.currentStory.kind}/${this.currentStory.story} after ${this.opt.captureMaxRetryCount} retries: ${error.message}`,
-          { cause: error },
+          `Failed to capture ${this.currentStory.kind}/${this.currentStory.story} after ${this.opt.captureMaxRetryCount} retries: ${errorMessage}`,
         );
       }
       throw error;
