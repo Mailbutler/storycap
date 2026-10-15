@@ -369,12 +369,47 @@ export class CapturingBrowser extends StoryPreviewBrowser {
    **/
   private async detectStoryError(): Promise<StoryErrorInfo | null> {
     return this.page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const recorded = (window as any).__storycapStoryError as StoryErrorInfo | null | undefined;
+      if (recorded) return recorded;
       if (!document.body.classList.contains('sb-show-errordisplay')) return null;
       return {
         message: document.getElementById('error-message')?.textContent?.trim() || 'Unknown error',
         stack: document.getElementById('error-stack')?.textContent?.trim() || '',
       };
     });
+  }
+
+  /**
+   *
+   * Records render errors reported on Storybook's channel, and forgets the previous story's.
+   *
+   * The error display alone is not reliable: Storybook's Vue 3 renderer reports an error thrown while mounting,
+   * which shows the error display, but then calls `showMain()` unconditionally once `mount()` returns. The display
+   * is hidden again before it can be detected and the story is captured blank. The `storyThrewException` event is
+   * emitted either way, and `storyErrored` covers stories that fail before rendering.
+   *
+   **/
+  private async watchStoryErrors() {
+    await this.page.evaluate(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any;
+      w.__storycapStoryError = null;
+      const channel = w.__STORYBOOK_ADDONS_CHANNEL__;
+      if (!channel || w.__storycapWatchesStoryErrors) return;
+      w.__storycapWatchesStoryErrors = true;
+      channel.on('storyThrewException', (error: { message?: string; stack?: string }) => {
+        w.__storycapStoryError = { message: error?.message || 'Unknown error', stack: error?.stack || '' };
+      });
+      channel.on('storyErrored', (error: { title?: string; description?: string }) => {
+        w.__storycapStoryError = { message: error?.title || 'Unknown error', stack: error?.description || '' };
+      });
+    });
+  }
+
+  override async setCurrentStory(story: Story, opt: { forceRerender?: boolean } = {}) {
+    await this.watchStoryErrors();
+    await super.setCurrentStory(story, opt);
   }
 
   private storyErrorResult(storyError: StoryErrorInfo): ScreenshotResult {
