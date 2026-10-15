@@ -57,6 +57,45 @@ export interface StoryErrorInfo {
 
 /**
  *
+ * Runs in the page and records render errors reported on Storybook's channel in `window.__storycapStoryError`.
+ *
+ * Attaches to the channel right away if it exists, otherwise as soon as Storybook's builder assigns
+ * `window.__STORYBOOK_ADDONS_CHANNEL__`. That makes it work as an `evaluateOnNewDocument` script, which keeps
+ * watching after the page reloads, e.g. when the viewport changes to a mobile one.
+ *
+ **/
+function watchStoryErrorsInPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const attach = (channel: any) => {
+    if (!channel || w.__storycapWatchesStoryErrors) return;
+    w.__storycapWatchesStoryErrors = true;
+    channel.on('storyThrewException', (error: { message?: string; stack?: string }) => {
+      w.__storycapStoryError = { message: error?.message || 'Unknown error', stack: error?.stack || '' };
+    });
+    channel.on('storyErrored', (error: { title?: string; description?: string }) => {
+      w.__storycapStoryError = { message: error?.title || 'Unknown error', stack: error?.description || '' };
+    });
+  };
+  if (w.__STORYBOOK_ADDONS_CHANNEL__) {
+    attach(w.__STORYBOOK_ADDONS_CHANNEL__);
+    return;
+  }
+  let channel: unknown;
+  Object.defineProperty(w, '__STORYBOOK_ADDONS_CHANNEL__', {
+    configurable: true,
+    enumerable: true,
+    get: () => channel,
+    set: value => {
+      channel = value;
+      attach(value);
+    },
+  });
+}
+
+/**
+ *
  * A worker to capture screenshot images.
  *
  **/
@@ -102,6 +141,9 @@ export class CapturingBrowser extends StoryPreviewBrowser {
    **/
   async boot() {
     await super.boot();
+    // The preview is already loaded at this point, so watch it now and in every document loaded later.
+    await this.page.evaluateOnNewDocument(watchStoryErrorsInPage);
+    await this.page.evaluate(watchStoryErrorsInPage);
     await this.expose();
     await this.addStyles();
     this.resourceWatcher = new ResourceWatcher(this.page).init();
@@ -382,33 +424,18 @@ export class CapturingBrowser extends StoryPreviewBrowser {
 
   /**
    *
-   * Records render errors reported on Storybook's channel, and forgets the previous story's.
+   * Forgets the render error recorded for the previous story before setting the next one.
    *
-   * The error display alone is not reliable: Storybook's Vue 3 renderer reports an error thrown while mounting,
-   * which shows the error display, but then calls `showMain()` unconditionally once `mount()` returns. The display
-   * is hidden again before it can be detected and the story is captured blank. The `storyThrewException` event is
-   * emitted either way, and `storyErrored` covers stories that fail before rendering.
+   * Render errors are recorded from Storybook's channel by {@link watchStoryErrorsInPage}, because the error display
+   * alone is not reliable: Storybook's Vue 3 renderer reports an error thrown while mounting, which shows the error
+   * display, but then calls `showMain()` unconditionally once `mount()` returns. The display is hidden again before
+   * it can be detected and the story is captured blank. The `storyThrewException` event is emitted either way, and
+   * `storyErrored` covers stories that fail before rendering.
    *
    **/
-  private async watchStoryErrors() {
-    await this.page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const w = window as any;
-      w.__storycapStoryError = null;
-      const channel = w.__STORYBOOK_ADDONS_CHANNEL__;
-      if (!channel || w.__storycapWatchesStoryErrors) return;
-      w.__storycapWatchesStoryErrors = true;
-      channel.on('storyThrewException', (error: { message?: string; stack?: string }) => {
-        w.__storycapStoryError = { message: error?.message || 'Unknown error', stack: error?.stack || '' };
-      });
-      channel.on('storyErrored', (error: { title?: string; description?: string }) => {
-        w.__storycapStoryError = { message: error?.title || 'Unknown error', stack: error?.description || '' };
-      });
-    });
-  }
-
   override async setCurrentStory(story: Story, opt: { forceRerender?: boolean } = {}) {
-    await this.watchStoryErrors();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.page.evaluate(() => ((window as any).__storycapStoryError = null));
     await super.setCurrentStory(story, opt);
   }
 
