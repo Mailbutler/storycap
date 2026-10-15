@@ -34,6 +34,7 @@ import { isRecoverableNavigationContextError } from './recoverable-error.js';
  * - If user's screenshot option has `skip: true`,`buffer` gets null and `succeeded` gets `true`
  * - `variantKeysToPush` is set an empty array if the capturing process is set not default variant key. It makes sense for only default variant.
  * - `defaultVariantSuffix` makes sense for only default variant too. It's set non-null value when user specifies multiple viewports.
+ * - `storyError` is set if Storybook rendered its error display instead of the story. `buffer` gets null if `failOnStoryError` is enabled.
  *
  **/
 interface ScreenshotResult {
@@ -41,6 +42,17 @@ interface ScreenshotResult {
   succeeded: boolean;
   variantKeysToPush: VariantKey[];
   defaultVariantSuffix?: string;
+  storyError?: StoryErrorInfo;
+}
+
+/**
+ *
+ * Error shown by Storybook's error display when a story failed to render.
+ *
+ **/
+export interface StoryErrorInfo {
+  message: string;
+  stack: string;
 }
 
 /**
@@ -348,6 +360,28 @@ export class CapturingBrowser extends StoryPreviewBrowser {
     }
   }
 
+  /**
+   *
+   * Detects whether Storybook shows its error display instead of the story, e.g. because the story threw while rendering.
+   *
+   * @returns The displayed error, or null if the story rendered normally.
+   *
+   **/
+  private async detectStoryError(): Promise<StoryErrorInfo | null> {
+    return this.page.evaluate(() => {
+      if (!document.body.classList.contains('sb-show-errordisplay')) return null;
+      return {
+        message: document.getElementById('error-message')?.textContent?.trim() || 'Unknown error',
+        stack: document.getElementById('error-stack')?.textContent?.trim() || '',
+      };
+    });
+  }
+
+  private storyErrorResult(storyError: StoryErrorInfo): ScreenshotResult {
+    this.debug('Story rendered error display:', this.currentRequestId, storyError.message);
+    return { buffer: null, succeeded: true, variantKeysToPush: [], defaultVariantSuffix: '', storyError };
+  }
+
   private logInvalidVariantKeysReason(reason: InvalidVariantKeysReason | null) {
     if (reason) {
       if (reason.type === 'notFound') {
@@ -449,8 +483,15 @@ export class CapturingBrowser extends StoryPreviewBrowser {
           throw new InvalidCurrentStoryStateError();
         }
         if (!emittedScreenshotOptions) {
-          // End this capturing process as failure of timeout if emitter don't resolve screenshot options.
-          return { buffer: null, succeeded: false, variantKeysToPush: [], defaultVariantSuffix: '' };
+          // A story which failed to render never triggers the capture, so there's no point in retrying it.
+          const storyError = await this.detectStoryError();
+          if (storyError) {
+            if (this.opt.failOnStoryError) return this.storyErrorResult(storyError);
+            emittedScreenshotOptions = pickupWithVariantKey(this.baseScreenshotOptions, this.currentVariantKey);
+          } else {
+            // End this capturing process as failure of timeout if emitter don't resolve screenshot options.
+            return { buffer: null, succeeded: false, variantKeysToPush: [], defaultVariantSuffix: '' };
+          }
         }
       } else {
         await sleep(this.opt.delay);
@@ -482,6 +523,12 @@ export class CapturingBrowser extends StoryPreviewBrowser {
       // Skip to capture if the viewport option is invalid.
       if (!vpChanged) return { buffer: null, succeeded: true, variantKeysToPush: [], defaultVariantSuffix: '' };
 
+      // Bail out before interacting with elements which a broken story doesn't render.
+      if (this.opt.failOnStoryError) {
+        const storyError = await this.detectStoryError();
+        if (storyError) return this.storyErrorResult(storyError);
+      }
+
       // Modify elements state.
       await this.setHover(mergedScreenshotOptions);
       await this.setFocus(mergedScreenshotOptions);
@@ -494,6 +541,13 @@ export class CapturingBrowser extends StoryPreviewBrowser {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await this.page.evaluate(() => new Promise(res => (window as any).requestIdleCallback(res, { timeout: 3000 })));
+
+      // The story may also have failed after the interactions or while waiting for stability.
+      const storyError = await this.detectStoryError();
+      if (storyError && this.opt.failOnStoryError) {
+        await this.resetIfTouched(mergedScreenshotOptions);
+        return this.storyErrorResult(storyError);
+      }
 
       // Get PNG image buffer
       const rawBuffer = await this.page.screenshot({
@@ -518,6 +572,7 @@ export class CapturingBrowser extends StoryPreviewBrowser {
         succeeded: true,
         variantKeysToPush,
         defaultVariantSuffix,
+        storyError: storyError ?? undefined,
       };
     } catch (error) {
       if (

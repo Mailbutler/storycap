@@ -38,6 +38,12 @@ async function createOptions(): Promise<MainOptions> {
         default: false,
         description: "Forward in-page console logs to the user's console.",
       },
+      failOnStoryError: {
+        boolean: true,
+        default: true,
+        description:
+          "Fail the run if a story renders Storybook's error display instead of the story. Use --no-failOnStoryError to only warn.",
+      },
       serverCmd: { string: true, default: '', description: 'Command line to launch Storybook server.' },
       serverTimeout: { number: true, default: 60_000, description: 'Timeout [msec] for starting Storybook server.' },
       shard: {
@@ -104,6 +110,7 @@ async function createOptions(): Promise<MainOptions> {
     silent,
     verbose,
     forwardConsoleLogs,
+    failOnStoryError,
     serverTimeout,
     serverCmd,
     shard,
@@ -172,6 +179,7 @@ async function createOptions(): Promise<MainOptions> {
     disableWaitAssets,
     trace,
     forwardConsoleLogs,
+    failOnStoryError,
     chromiumChannel: chromiumChannel as ChromeChannel,
     chromiumPath,
     launchOptions: puppeteerLaunchConfig,

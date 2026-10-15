@@ -338,6 +338,8 @@ Options:
       --silent                                                                                [boolean] [default: false]
       --verbose                                                                               [boolean] [default: false]
       --forwardConsoleLogs         Forward in-page console logs to the user's console.        [boolean] [default: false]
+      --failOnStoryError           Fail the run if a story renders Storybook's error display instead of the story. Use
+                                   --no-failOnStoryError to only warn.                         [boolean] [default: true]
       --serverCmd                  Command line to launch Storybook server.                       [string] [default: ""]
       --serverTimeout              Timeout [msec] for starting Storybook server.               [number] [default: 60000]
       --shard                      The sharding options for this run. In the format <shardNumber>/<totalShards>.
