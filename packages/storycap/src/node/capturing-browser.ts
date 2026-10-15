@@ -410,16 +410,23 @@ export class CapturingBrowser extends StoryPreviewBrowser {
    *
    **/
   private async detectStoryError(): Promise<StoryErrorInfo | null> {
-    return this.page.evaluate(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const recorded = (window as any).__storycapStoryError as StoryErrorInfo | null | undefined;
-      if (recorded) return recorded;
-      if (!document.body.classList.contains('sb-show-errordisplay')) return null;
-      return {
-        message: document.getElementById('error-message')?.textContent?.trim() || 'Unknown error',
-        stack: document.getElementById('error-stack')?.textContent?.trim() || '',
-      };
-    });
+    // The page may have been reloaded or its frame detached meanwhile, e.g. when a capture timed out and the story
+    // is queued for a retry. Nothing can be detected then, and the retry must not be turned into a failed run.
+    return this.page
+      .evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recorded = (window as any).__storycapStoryError as StoryErrorInfo | null | undefined;
+        if (recorded) return recorded;
+        if (!document.body.classList.contains('sb-show-errordisplay')) return null;
+        return {
+          message: document.getElementById('error-message')?.textContent?.trim() || 'Unknown error',
+          stack: document.getElementById('error-stack')?.textContent?.trim() || '',
+        };
+      })
+      .catch((error: unknown) => {
+        this.debug('Could not check for a story error:', error instanceof Error ? error.message : error);
+        return null;
+      });
   }
 
   /**
