@@ -3,6 +3,7 @@ import { CapturingBrowser } from './capturing-browser.js';
 import { FileSystem } from './file.js';
 import { Logger } from './logger.js';
 import { VariantKey } from '../shared/types.js';
+import { StoryRenderError } from './errors.js';
 
 function createRequest({
   story,
@@ -50,6 +51,7 @@ export type ScreenshotServiceOptions = {
   stories: Story[];
   forwardConsoleLogs: boolean;
   trace: boolean;
+  failOnStoryError: boolean;
 };
 
 /**
@@ -67,7 +69,9 @@ export function createScreenshotService({
   workers,
   forwardConsoleLogs,
   trace,
+  failOnStoryError,
 }: ScreenshotServiceOptions): ScreenshotService {
+  const brokenStories: { kind: string; story: string; message: string }[] = [];
   const service = createExecutionService(
     workers,
     stories.map(story => createRequest({ story })),
@@ -78,11 +82,22 @@ export function createScreenshotService({
           worker.screenshot(rid, story, variantKey, count, logger, forwardConsoleLogs, trace, fileSystem),
         );
 
-        const { succeeded, buffer, variantKeysToPush, defaultVariantSuffix } = result;
+        const { succeeded, buffer, variantKeysToPush, defaultVariantSuffix, storyError } = result;
 
         // Queue retry request if the request was not succeeded.
         // Worker throws `ScreenshotTimeoutError` if the queued request continues failed and the count exceeds the threhold.
         if (!succeeded) return push(createRequest({ story, variantKey, count: count + 1 }));
+
+        if (storyError) {
+          const name = `${story.kind}/${story.story}`;
+          if (failOnStoryError) {
+            brokenStories.push({ kind: story.kind, story: story.story, message: storyError.message });
+            logger.error(`Story ${logger.color.yellow(name)} failed to render: ${storyError.message}`);
+            if (storyError.stack) logger.errorStack(storyError.stack);
+          } else {
+            logger.warn(`Story ${logger.color.yellow(name)} failed to render: ${storyError.message}`);
+          }
+        }
 
         // Queue screenshot requests for additional variants.
         variantKeysToPush.forEach(variantKey => push(createRequest({ story, variantKey })));
@@ -96,6 +111,10 @@ export function createScreenshotService({
       },
   );
   return {
-    execute: () => service.execute().then(captured => captured.filter(c => !!c).length),
+    execute: async () => {
+      const captured = await service.execute();
+      if (brokenStories.length) throw new StoryRenderError(brokenStories);
+      return captured.filter(c => !!c).length;
+    },
   };
 }

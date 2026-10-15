@@ -42,6 +42,7 @@ export interface MainOptions extends BaseBrowserOptions {
   disableWaitAssets: boolean;
   trace: boolean;
   forwardConsoleLogs: boolean;
+  failOnStoryError: boolean;
   parallel: number;
   shard: ShardOptions;
   metricsWatchRetryCount: number;
