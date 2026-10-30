@@ -1,4 +1,5 @@
 import { Logger } from './logger.js';
+import type { CaptureStabilityStrategy } from '../shared/types.js';
 import type { LaunchOptions } from 'puppeteer-core';
 import { StorybookConnectionOptions, BaseBrowserOptions, ChromeChannel } from '@prantlf/storycrawler';
 
@@ -30,6 +31,12 @@ export interface MainOptions extends BaseBrowserOptions {
   captureTimeout: number;
   captureMaxRetryCount: number;
   delay: number;
+  captureStabilityStrategy: CaptureStabilityStrategy;
+  idleTimeoutMs: number;
+  stableScreenshotIntervalMs: number;
+  stableScreenshotMaxAttempts: number;
+  stableScreenshotConsecutiveMatches: number;
+  unstableScreenshotAttemptsDir: string;
   viewports: string[];
   viewportDelay: number;
   stateChangeDelay: number;

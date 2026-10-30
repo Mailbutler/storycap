@@ -1,4 +1,10 @@
-import { expandViewportsOption, pickupWithVariantKey, extractVariantKeys } from './screenshot-options-helper';
+import {
+  expandViewportsOption,
+  pickupWithVariantKey,
+  extractVariantKeys,
+  createBaseScreenshotOptions,
+  mergeScreenshotOptions,
+} from './screenshot-options-helper';
 
 describe(expandViewportsOption, () => {
   it('should expand viewport and variants from viewports', () => {
@@ -237,5 +243,53 @@ describe(pickupWithVariantKey, () => {
       viewport: 'iPhone 6',
       defaultVariantSuffix: 'iPhone 6',
     });
+  });
+});
+
+describe(createBaseScreenshotOptions, () => {
+  const stabilityOptions = {
+    captureStabilityStrategy: 'image-stable' as const,
+    idleTimeoutMs: 300,
+    stableScreenshotIntervalMs: 100,
+    stableScreenshotMaxAttempts: 5,
+    stableScreenshotConsecutiveMatches: 2,
+    unstableScreenshotAttemptsDir: '',
+  };
+
+  it('should take the capture stability options', () => {
+    expect(
+      createBaseScreenshotOptions({ delay: 0, disableWaitAssets: false, viewports: ['800x600'], ...stabilityOptions }),
+    ).toMatchObject(stabilityOptions);
+  });
+
+  it('should keep the capture stability options in variants', () => {
+    const base = createBaseScreenshotOptions({
+      delay: 0,
+      disableWaitAssets: false,
+      viewports: ['800x600', '375x667'],
+      ...stabilityOptions,
+    });
+    expect(pickupWithVariantKey(base, { isDefault: false, keys: ['375x667'] })).toMatchObject({
+      ...stabilityOptions,
+      viewport: '375x667',
+    });
+  });
+});
+
+describe(mergeScreenshotOptions, () => {
+  it('should let a story override the capture stability strategy', () => {
+    expect(
+      mergeScreenshotOptions(
+        { captureStabilityStrategy: 'idle', idleTimeoutMs: 3000 },
+        { captureStabilityStrategy: 'image-stable' },
+      ),
+    ).toEqual({ captureStabilityStrategy: 'image-stable', idleTimeoutMs: 3000 });
+  });
+
+  it('should copy the base options without a fragment', () => {
+    const base = { delay: 10 };
+    const merged = mergeScreenshotOptions(base);
+    expect(merged).toEqual(base);
+    expect(merged).not.toBe(base);
   });
 });

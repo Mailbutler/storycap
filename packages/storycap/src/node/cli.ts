@@ -5,6 +5,7 @@ import { hideBin } from 'yargs/helpers';
 import { time, ChromeChannel, getDeviceDescriptors } from '@prantlf/storycrawler';
 import { main } from './main.js';
 import { MainOptions, ShardOptions } from './types.js';
+import { CaptureStabilityStrategy } from '../shared/types.js';
 import { Logger } from './logger.js';
 import { parseShardOptions } from './shard-utilities.js';
 
@@ -27,6 +28,39 @@ async function createOptions(): Promise<MainOptions> {
       include: { array: true, alias: 'i', default: [], description: 'Including stories name rule.' },
       exclude: { array: true, alias: 'e', default: [], description: 'Excluding stories name rule.' },
       delay: { number: true, default: 0, description: 'Waiting time [msec] before screenshot for each story.' },
+      captureStabilityStrategy: {
+        string: true,
+        default: 'idle',
+        choices: ['idle', 'image-stable'],
+        description:
+          'Screenshot stabilization strategy: "idle" waits for requestIdleCallback, "image-stable" waits for repeated identical PNGs.',
+      },
+      idleTimeoutMs: {
+        number: true,
+        default: 3000,
+        description: 'Timeout [msec] used by requestIdleCallback waits in "idle" stabilization mode.',
+      },
+      stableScreenshotIntervalMs: {
+        number: true,
+        default: 250,
+        description: 'Delay [msec] between attempts when captureStabilityStrategy is "image-stable".',
+      },
+      stableScreenshotMaxAttempts: {
+        number: true,
+        default: 10,
+        description: 'Maximum screenshot attempts when captureStabilityStrategy is "image-stable".',
+      },
+      stableScreenshotConsecutiveMatches: {
+        number: true,
+        default: 3,
+        description: 'Required number of equal consecutive screenshots to treat "image-stable" capture as converged.',
+      },
+      unstableScreenshotAttemptsDir: {
+        string: true,
+        default: 'testReports/storycap-unstable',
+        description:
+          'Directory where unstable image-stable attempts are stored. Set empty to disable writing unstable attempts.',
+      },
       viewport: { array: true, alias: 'V', default: ['800x600'], description: 'Viewport.' },
       disableCssAnimation: { boolean: true, default: true, description: 'Disable CSS animation and transition.' },
       disableWaitAssets: { boolean: true, default: false, description: 'Disable waiting for requested assets' },
@@ -105,6 +139,12 @@ async function createOptions(): Promise<MainOptions> {
     include,
     exclude,
     delay,
+    captureStabilityStrategy,
+    idleTimeoutMs,
+    stableScreenshotIntervalMs,
+    stableScreenshotMaxAttempts,
+    stableScreenshotConsecutiveMatches,
+    unstableScreenshotAttemptsDir,
     viewport,
     parallel,
     silent,
@@ -166,6 +206,12 @@ async function createOptions(): Promise<MainOptions> {
     include,
     exclude,
     delay,
+    captureStabilityStrategy: captureStabilityStrategy as CaptureStabilityStrategy,
+    idleTimeoutMs,
+    stableScreenshotIntervalMs,
+    stableScreenshotMaxAttempts,
+    stableScreenshotConsecutiveMatches,
+    unstableScreenshotAttemptsDir,
     viewports: viewport,
     parallel,
     shard: shardOptions,

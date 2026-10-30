@@ -323,39 +323,57 @@ Returns whether current process runs in Storycap browser. It's useful to change 
 usage: storycap [options] storybook_url
 
 Options:
-      --help                       Show help                                                                   [boolean]
-      --version                    Show version number                                                         [boolean]
-  -o, --outDir                     Output directory.                               [string] [default: "__screenshots__"]
-  -p, --parallel                   Number of browsers to screenshot.                               [number] [default: 4]
-  -f, --flat                       Flatten output filename.                                   [boolean] [default: false]
-  -i, --include                    Including stories name rule.                                    [array] [default: []]
-  -e, --exclude                    Excluding stories name rule.                                    [array] [default: []]
-      --delay                      Waiting time [msec] before screenshot for each story.           [number] [default: 0]
-  -V, --viewport                   Viewport.                                              [array] [default: ["800x600"]]
-      --disableCssAnimation        Disable CSS animation and transition.                       [boolean] [default: true]
-      --disableWaitAssets          Disable waiting for requested assets                       [boolean] [default: false]
-      --trace                      Emit Chromium trace files per screenshot.                  [boolean] [default: false]
+      --help                                Show help                                                          [boolean]
+      --version                             Show version number                                                [boolean]
+  -o, --outDir                              Output directory.                      [string] [default: "__screenshots__"]
+  -p, --parallel                            Number of browsers to screenshot.                      [number] [default: 4]
+  -f, --flat                                Flatten output filename.                          [boolean] [default: false]
+  -i, --include                             Including stories name rule.                           [array] [default: []]
+  -e, --exclude                             Excluding stories name rule.                           [array] [default: []]
+      --delay                               Waiting time [msec] before screenshot for each story.  [number] [default: 0]
+      --captureStabilityStrategy            Screenshot stabilization strategy: "idle" waits for requestIdleCallback,
+                                            "image-stable" waits for repeated identical PNGs.
+                                                            [string] [choices: "idle", "image-stable"] [default: "idle"]
+      --idleTimeoutMs                       Timeout [msec] used by requestIdleCallback waits in "idle" stabilization
+                                            mode.                                               [number] [default: 3000]
+      --stableScreenshotIntervalMs          Delay [msec] between attempts when captureStabilityStrategy is
+                                            "image-stable".                                      [number] [default: 250]
+      --stableScreenshotMaxAttempts         Maximum screenshot attempts when captureStabilityStrategy is "image-stable".
+                                                                                                  [number] [default: 10]
+      --stableScreenshotConsecutiveMatches  Required number of equal consecutive screenshots to treat "image-stable"
+                                            capture as converged.                                  [number] [default: 3]
+      --unstableScreenshotAttemptsDir       Directory where unstable image-stable attempts are stored. Set empty to
+                                            disable writing unstable attempts.
+                                                                     [string] [default: "testReports/storycap-unstable"]
+  -V, --viewport                            Viewport.                                     [array] [default: ["800x600"]]
+      --disableCssAnimation                 Disable CSS animation and transition.              [boolean] [default: true]
+      --disableWaitAssets                   Disable waiting for requested assets              [boolean] [default: false]
+      --trace                               Emit Chromium trace files per screenshot.         [boolean] [default: false]
       --silent                                                                                [boolean] [default: false]
       --verbose                                                                               [boolean] [default: false]
-      --forwardConsoleLogs         Forward in-page console logs to the user's console.        [boolean] [default: false]
-      --failOnStoryError           Fail the run if a story renders Storybook's error display instead of the story. Use
-                                   --no-failOnStoryError to only warn.                         [boolean] [default: true]
-      --serverCmd                  Command line to launch Storybook server.                       [string] [default: ""]
-      --serverTimeout              Timeout [msec] for starting Storybook server.               [number] [default: 60000]
-      --shard                      The sharding options for this run. In the format <shardNumber>/<totalShards>.
-                                   <shardNumber> is a number between 1 and <totalShards>. <totalShards> is the total
-                                   number of computers working.                                [string] [default: "1/1"]
-      --captureTimeout             Timeout [msec] for capture a story.                          [number] [default: 5000]
-      --captureMaxRetryCount       Number of count to retry to capture.                            [number] [default: 3]
-      --metricsWatchRetryCount     Number of count to retry until browser metrics stable.       [number] [default: 1000]
-      --viewportDelay              Delay time [msec] between changing viewport and capturing.    [number] [default: 300]
-      --reloadAfterChangeViewport  Whether to reload after viewport changed.                  [boolean] [default: false]
-      --stateChangeDelay           Delay time [msec] after changing element's state.               [number] [default: 0]
-      --listDevices                List available device descriptors.                         [boolean] [default: false]
-  -C, --chromiumChannel            Channel to search local Chromium. One of "puppeteer", "canary", "stable", "*"
-                                                                                                 [string] [default: "*"]
-      --chromiumPath               Executable Chromium path.                                      [string] [default: ""]
-      --puppeteerLaunchConfig      JSON string of launch config for Puppeteer.
+      --forwardConsoleLogs                  Forward in-page console logs to the user's console.
+                                                                                              [boolean] [default: false]
+      --failOnStoryError                    Fail the run if a story renders Storybook's error display instead of the
+                                            story. Use --no-failOnStoryError to only warn.     [boolean] [default: true]
+      --serverCmd                           Command line to launch Storybook server.              [string] [default: ""]
+      --serverTimeout                       Timeout [msec] for starting Storybook server.      [number] [default: 60000]
+      --shard                               The sharding options for this run. In the format
+                                            <shardNumber>/<totalShards>. <shardNumber> is a number between 1 and
+                                            <totalShards>. <totalShards> is the total number of computers working.
+                                                                                               [string] [default: "1/1"]
+      --captureTimeout                      Timeout [msec] for capture a story.                 [number] [default: 5000]
+      --captureMaxRetryCount                Number of count to retry to capture.                   [number] [default: 3]
+      --metricsWatchRetryCount              Number of count to retry until browser metrics stable.
+                                                                                                [number] [default: 1000]
+      --viewportDelay                       Delay time [msec] between changing viewport and capturing.
+                                                                                                 [number] [default: 300]
+      --reloadAfterChangeViewport           Whether to reload after viewport changed.         [boolean] [default: false]
+      --stateChangeDelay                    Delay time [msec] after changing element's state.      [number] [default: 0]
+      --listDevices                         List available device descriptors.                [boolean] [default: false]
+  -C, --chromiumChannel                     Channel to search local Chromium. One of "puppeteer", "canary", "stable",
+                                            "*"                                                  [string] [default: "*"]
+      --chromiumPath                        Executable Chromium path.                             [string] [default: ""]
+      --puppeteerLaunchConfig               JSON string of launch config for Puppeteer.
                [string] [default: "{ "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"] }"]
 
 Examples:

@@ -24,6 +24,14 @@ import {
 import { Logger } from './logger.js';
 import { FileSystem } from './file.js';
 import { isRecoverableNavigationContextError } from './recoverable-error.js';
+import { areLastBuffersEqual } from './stable-screenshot.js';
+
+type ScreenshotArgs = {
+  fullPage?: boolean;
+  omitBackground?: boolean;
+  captureBeyondViewport?: boolean;
+  clip?: { x: number; y: number; width: number; height: number };
+};
 
 /**
  *
@@ -451,6 +459,79 @@ export class CapturingBrowser extends StoryPreviewBrowser {
     return { buffer: null, succeeded: true, variantKeysToPush: [], defaultVariantSuffix: '', storyError };
   }
 
+  private async waitForNextIdle(timeout = 3000) {
+    await this.page.evaluate(
+      (idleTimeoutMs: number) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        new Promise(res => (window as any).requestIdleCallback(res, { timeout: idleTimeoutMs })),
+      timeout,
+    );
+  }
+
+  /**
+   *
+   * Takes screenshots until the configured number of consecutive ones are byte-identical.
+   *
+   * Used by the `image-stable` capture stability strategy instead of waiting for the browser to become idle, which
+   * headless Chrome may not grant before the idle timeout. If the screenshots don't converge, the last one is used and
+   * all attempts are stored in `unstableScreenshotAttemptsDir` for inspection.
+   *
+   * @returns PNG image buffer of the last screenshot taken
+   *
+   **/
+  private async captureStableScreenshot(
+    screenshotArgs: ScreenshotArgs,
+    screenshotOptions: StrictScreenshotOptions,
+    fileSystem: FileSystem,
+  ) {
+    const interval = Math.max(0, screenshotOptions.stableScreenshotIntervalMs);
+    const consecutiveMatches = Math.max(2, screenshotOptions.stableScreenshotConsecutiveMatches);
+    const maxAttempts = Math.max(consecutiveMatches, screenshotOptions.stableScreenshotMaxAttempts);
+    const attempts: Buffer[] = [];
+
+    for (let attempt = 1; attempt <= maxAttempts; ++attempt) {
+      if (attempt > 1 && interval > 0) await sleep(interval);
+      const buffer = await this.page.screenshot(screenshotArgs);
+      if (!Buffer.isBuffer(buffer)) {
+        throw new Error('Unexpected screenshot payload while capturing stable screenshot.');
+      }
+      attempts.push(buffer);
+      if (areLastBuffersEqual(attempts, consecutiveMatches)) {
+        this.debug(`Stable screenshot resolved after ${attempt}/${maxAttempts} attempts.`);
+        return buffer;
+      }
+    }
+
+    if (!this.currentStory) {
+      throw new InvalidCurrentStoryStateError();
+    }
+    const { kind, story } = this.currentStory;
+    const suffix =
+      this.currentVariantKey.isDefault && screenshotOptions.defaultVariantSuffix
+        ? [screenshotOptions.defaultVariantSuffix]
+        : this.currentVariantKey.keys;
+    const savedPaths = await Promise.all(
+      attempts.map((buffer, index) =>
+        fileSystem.saveUnstableScreenshotAttempt(
+          screenshotOptions.unstableScreenshotAttemptsDir,
+          kind,
+          story,
+          suffix,
+          index + 1,
+          buffer,
+        ),
+      ),
+    );
+    const savedDir = savedPaths[0] && path.dirname(savedPaths[0]);
+    this.opt.logger.warn(
+      `Stable screenshot did not converge after ${maxAttempts} attempts. Using the last attempt for ` +
+        `${this.opt.logger.color.yellow(`${kind}/${story}`)} ` +
+        `(variant: ${this.currentVariantKey.isDefault ? 'default' : this.currentVariantKey.keys.join(' -> ')}).` +
+        (savedDir ? ` Stored unstable attempts in ${savedDir}.` : ''),
+    );
+    return attempts[attempts.length - 1];
+  }
+
   private logInvalidVariantKeysReason(reason: InvalidVariantKeysReason | null) {
     if (reason) {
       if (reason.type === 'notFound') {
@@ -608,8 +689,8 @@ export class CapturingBrowser extends StoryPreviewBrowser {
       await this.waitForResources(mergedScreenshotOptions);
       await this.waitBrowserMetricsStable('postEmit');
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await this.page.evaluate(() => new Promise(res => (window as any).requestIdleCallback(res, { timeout: 3000 })));
+      const imageStable = mergedScreenshotOptions.captureStabilityStrategy === 'image-stable';
+      if (!imageStable) await this.waitForNextIdle(mergedScreenshotOptions.idleTimeoutMs);
 
       // The story may also have failed after the interactions or while waiting for stability.
       const storyError = await this.detectStoryError();
@@ -619,12 +700,15 @@ export class CapturingBrowser extends StoryPreviewBrowser {
       }
 
       // Get PNG image buffer
-      const rawBuffer = await this.page.screenshot({
+      const screenshotArgs: ScreenshotArgs = {
         fullPage: emittedScreenshotOptions.fullPage,
         omitBackground: emittedScreenshotOptions.omitBackground,
         captureBeyondViewport: emittedScreenshotOptions.captureBeyondViewport,
         clip: emittedScreenshotOptions.clip ?? undefined,
-      });
+      };
+      const rawBuffer = imageStable
+        ? await this.captureStableScreenshot(screenshotArgs, mergedScreenshotOptions, fileSystem)
+        : await this.page.screenshot(screenshotArgs);
 
       let buffer: Buffer | null = null;
       if (Buffer.isBuffer(rawBuffer)) {
