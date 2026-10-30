@@ -1,9 +1,21 @@
-import { VariantKey, StrictScreenshotOptions, ScreenshotOptions, ScreenshotOptionFragments } from '../shared/types.js';
+import {
+  VariantKey,
+  StrictScreenshotOptions,
+  ScreenshotOptions,
+  ScreenshotOptionFragments,
+  CaptureStabilityStrategy,
+} from '../shared/types.js';
 
 const defaultScreenshotOptions = {
   waitAssets: true,
   waitImages: false,
   waitFor: '',
+  captureStabilityStrategy: 'idle',
+  idleTimeoutMs: 3000,
+  stableScreenshotIntervalMs: 250,
+  stableScreenshotMaxAttempts: 10,
+  stableScreenshotConsecutiveMatches: 3,
+  unstableScreenshotAttemptsDir: 'testReports/storycap-unstable',
   fullPage: true,
   skip: false,
   focus: '',
@@ -60,16 +72,37 @@ export function createBaseScreenshotOptions({
   delay,
   disableWaitAssets,
   viewports,
+  captureStabilityStrategy,
+  idleTimeoutMs,
+  stableScreenshotIntervalMs,
+  stableScreenshotMaxAttempts,
+  stableScreenshotConsecutiveMatches,
+  unstableScreenshotAttemptsDir,
 }: {
   delay: number;
   disableWaitAssets: boolean;
   viewports: string[];
+  captureStabilityStrategy: CaptureStabilityStrategy;
+  idleTimeoutMs: number;
+  stableScreenshotIntervalMs: number;
+  stableScreenshotMaxAttempts: number;
+  stableScreenshotConsecutiveMatches: number;
+  unstableScreenshotAttemptsDir: string;
 }): StrictScreenshotOptions {
+  const stabilityOptions = {
+    captureStabilityStrategy,
+    idleTimeoutMs,
+    stableScreenshotIntervalMs,
+    stableScreenshotMaxAttempts,
+    stableScreenshotConsecutiveMatches,
+    unstableScreenshotAttemptsDir,
+  };
   if (viewports.length > 1) {
     return {
       ...defaultScreenshotOptions,
       delay,
       waitAssets: !disableWaitAssets,
+      ...stabilityOptions,
       viewport: viewports[0],
       variants: viewports.slice(1).reduce((acc, vp) => ({ ...acc, [vp]: { viewport: vp } }), {}),
       defaultVariantSuffix: viewports[0],
@@ -79,6 +112,7 @@ export function createBaseScreenshotOptions({
       ...defaultScreenshotOptions,
       delay,
       waitAssets: !disableWaitAssets,
+      ...stabilityOptions,
       viewport: viewports[0],
       defaultVariantSuffix: '',
     };
@@ -94,7 +128,8 @@ export function createBaseScreenshotOptions({
  * @returns Merged screenshot options
  *
  **/
-export function mergeScreenshotOptions<T extends ScreenshotOptions>(base: T, fragment: ScreenshotOptions): T {
+export function mergeScreenshotOptions<T extends ScreenshotOptions>(base: T, fragment?: ScreenshotOptions): T {
+  if (!fragment) return { ...base };
   const ret = Object.assign({}, base, fragment) as T;
   if (!base.viewport || typeof base.viewport === 'string') {
     if (fragment.viewport) {

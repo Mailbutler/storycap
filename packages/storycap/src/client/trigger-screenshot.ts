@@ -63,8 +63,8 @@ function waitUserFunction(waitFor: undefined | null | string | (() => Promise<an
   }
 }
 
-function waitForNextIdle(win: StorycapWindow) {
-  return new Promise(res => win.requestIdleCallback(res, { timeout: 3000 }));
+function waitForNextIdle(win: StorycapWindow, timeout = 3000) {
+  return new Promise(res => win.requestIdleCallback(res, { timeout }));
 }
 
 function pushOptions(win: StorycapWindow, storyKey: string | undefined, opt: Partial<ScreenshotOptions>) {
@@ -141,10 +141,12 @@ function capture() {
     // Wait for the following:
     // - Delay time set by options(API or CLI)
     // - User promise function
-    // - Other browser's main thread procedure(using rIC)
+    // - Other browser's main thread procedure(using rIC), unless the main process compares screenshots instead
     await waitForDelayTime(scOpt.delay);
     await waitUserFunction(scOpt.waitFor);
-    await waitForNextIdle(win);
+    if (scOpt.captureStabilityStrategy !== 'image-stable') {
+      await waitForNextIdle(win, scOpt.idleTimeoutMs);
+    }
 
     // Finally, send options to the Node.js main process.
     await win.emitCapture(scOpt, storyKey);

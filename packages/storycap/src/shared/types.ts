@@ -11,8 +11,16 @@ export type Viewport = {
   isLandscape?: boolean;
 };
 
+export type CaptureStabilityStrategy = 'idle' | 'image-stable';
+
 export interface ScreenshotOptionFragments {
   delay?: number;
+  captureStabilityStrategy?: CaptureStabilityStrategy;
+  idleTimeoutMs?: number;
+  stableScreenshotIntervalMs?: number;
+  stableScreenshotMaxAttempts?: number;
+  stableScreenshotConsecutiveMatches?: number;
+  unstableScreenshotAttemptsDir?: string;
   waitAssets?: boolean;
   waitImages?: boolean; // deprecated. Use `waitAssets`
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
