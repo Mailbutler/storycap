@@ -18,6 +18,31 @@ This is a fork of the original project with the following enhancements:
 - Possible to disable `nextStep()` advancement in headful browser mode [#1017](https://github.com/reg-viz/storycap/pull/1017)
 - Preserve the `search` and `hash` parts of the Storybook connection URL and appends them to the Storybook iframe story URL to be able to use them in the story implementation during the runtime [#1018](https://github.com/reg-viz/storycap/pull/1018)
 
+## About `@mailbutler/storycap`
+
+This repository is Mailbutler's fork of [prantlf/storycap](https://github.com/prantlf/storycap), published on npm as [`@mailbutler/storycap`](https://www.npmjs.com/package/@mailbutler/storycap). We use it for the Storybook snapshot tests in `mailbutler-mansion`.
+
+We keep it as a maintained fork because upstream is inactive: prantlf/storycap hasn't changed since November 2025, and [reg-viz/storycap](https://github.com/reg-viz/storycap) not since January 2025. Generic bug fixes are still offered upstream, but we don't wait for them to be merged.
+
+Changes on top of prantlf/storycap 8.1.1:
+
+- Retry captures that fail with transient navigation errors ("Execution context was destroyed", "Cannot find context with specified id").
+- Wait up to 1.5 s for the `hover`, `focus` and `click` selectors to appear, and retry the capture if they don't.
+- In managed mode, fall back to the CLI screenshot options when a story never triggers the capture.
+- `--failOnStoryError` (on by default): fail the run when a story throws while rendering or shows Storybook's error display, instead of capturing a blank or broken screenshot. Use `--no-failOnStoryError` to only warn.
+- `--captureStabilityStrategy image-stable`: take screenshots until several consecutive ones are identical, instead of waiting for `requestIdleCallback`, which headless Chrome often doesn't grant. See the `--stableScreenshot*`, `--idleTimeoutMs` and `--unstableScreenshotAttemptsDir` options below.
+- Press Shift before each capture, so a `click` variant doesn't stop the `:focus-visible` styles of later stories from matching.
+- Actually close the capture browsers when the run ends.
+
+### Releasing
+
+Releases are published by hand; the CI workflow only builds and tests.
+
+1. Bump `version` in `packages/storycap/package.json` to the next `8.1.1-mailbutler.N` and commit it.
+2. Run `yarn install --frozen-lockfile && yarn build`.
+3. Run `npm publish --access public` in `packages/storycap` (you need publish rights for the `@mailbutler` npm scope).
+4. Update `@mailbutler/storycap` in `mailbutler-mansion` (`checkout` and `vue-component-library`).
+
 <!-- toc -->
 
 - [Features](#features)
