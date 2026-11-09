@@ -1,4 +1,5 @@
 import { Logger } from './logger.js';
+import type { RemoteRequestOptions } from './remote-requests.js';
 import type { CaptureStabilityStrategy } from '../shared/types.js';
 import type { LaunchOptions } from 'puppeteer-core';
 import { StorybookConnectionOptions, BaseBrowserOptions, ChromeChannel } from '@prantlf/storycrawler';
@@ -26,7 +27,7 @@ export type ShardOptions = {
  * Almost all of fields are dericed CLI options.
  *
  **/
-export interface MainOptions extends BaseBrowserOptions {
+export interface MainOptions extends BaseBrowserOptions, RemoteRequestOptions {
   serverOptions: StorybookConnectionOptions;
   captureTimeout: number;
   captureMaxRetryCount: number;

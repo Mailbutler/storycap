@@ -78,6 +78,23 @@ async function createOptions(): Promise<MainOptions> {
         description:
           "Fail the run if a story renders Storybook's error display instead of the story. Use --no-failOnStoryError to only warn.",
       },
+      remoteFixturesDir: {
+        string: true,
+        default: '',
+        description:
+          'Directory with local copies of remote resources, laid out as <host><path>. Requests to other hosts than Storybook are served from it.',
+      },
+      failOnRemoteRequest: {
+        boolean: true,
+        default: false,
+        description: 'Fail the run if a story requests another host than Storybook and there is no fixture for it.',
+      },
+      allowRemoteHost: {
+        array: true,
+        string: true,
+        default: [],
+        description: 'Host that may still be requested from the network.',
+      },
       serverCmd: { string: true, default: '', description: 'Command line to launch Storybook server.' },
       serverTimeout: { number: true, default: 60_000, description: 'Timeout [msec] for starting Storybook server.' },
       shard: {
@@ -151,6 +168,9 @@ async function createOptions(): Promise<MainOptions> {
     verbose,
     forwardConsoleLogs,
     failOnStoryError,
+    remoteFixturesDir,
+    failOnRemoteRequest,
+    allowRemoteHost,
     serverTimeout,
     serverCmd,
     shard,
@@ -226,6 +246,9 @@ async function createOptions(): Promise<MainOptions> {
     trace,
     forwardConsoleLogs,
     failOnStoryError,
+    remoteFixturesDir,
+    failOnRemoteRequest,
+    allowRemoteHosts: allowRemoteHost,
     chromiumChannel: chromiumChannel as ChromeChannel,
     chromiumPath,
     launchOptions: puppeteerLaunchConfig,

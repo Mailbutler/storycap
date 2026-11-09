@@ -25,6 +25,7 @@ import { Logger } from './logger.js';
 import { FileSystem } from './file.js';
 import { isRecoverableNavigationContextError } from './recoverable-error.js';
 import { areLastBuffersEqual } from './stable-screenshot.js';
+import { RemoteRequestInterceptor, shouldInterceptRemoteRequests } from './remote-requests.js';
 
 type ScreenshotArgs = {
   fullPage?: boolean;
@@ -117,6 +118,7 @@ export class CapturingBrowser extends StoryPreviewBrowser {
   private currentVariantKey: VariantKey = { isDefault: true, keys: [] };
   private touched = false;
   private resourceWatcher!: ResourceWatcher;
+  private remoteRequestInterceptor?: RemoteRequestInterceptor;
   private readonly interactionSelectorWaitTimeout = 1500;
 
   /**
@@ -149,6 +151,17 @@ export class CapturingBrowser extends StoryPreviewBrowser {
    **/
   async boot() {
     await super.boot();
+    if (shouldInterceptRemoteRequests(this.opt)) {
+      this.remoteRequestInterceptor = await new RemoteRequestInterceptor(
+        this.page,
+        this.connection.url,
+        this.opt,
+        this.opt.logger,
+      ).init();
+      // The preview was loaded before the interception was set up, so load it again to also serve its own remote
+      // resources (e.g. web fonts in the preview head) from fixtures.
+      await this.page.reload({ timeout: 60_000, waitUntil: 'domcontentloaded' });
+    }
     // The preview is already loaded at this point, so watch it now and in every document loaded later.
     await this.page.evaluateOnNewDocument(watchStoryErrorsInPage);
     await this.page.evaluate(watchStoryErrorsInPage);
@@ -156,6 +169,15 @@ export class CapturingBrowser extends StoryPreviewBrowser {
     await this.addStyles();
     this.resourceWatcher = new ResourceWatcher(this.page).init();
     return this;
+  }
+
+  /**
+   *
+   * Returns the remote URLs requested without a fixture since the last call, see {@link RemoteRequestInterceptor}.
+   *
+   **/
+  takeUnmappedRemoteUrls() {
+    return this.remoteRequestInterceptor?.takeUnmappedUrls() ?? [];
   }
 
   private async addStyles() {

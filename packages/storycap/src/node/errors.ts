@@ -26,3 +26,16 @@ export class StoryRenderError extends Error {
       .join('\n')}`;
   }
 }
+
+export class RemoteRequestError extends Error {
+  name = 'RemoteRequestError';
+
+  constructor(urlsByStory: Map<string, Set<string>>) {
+    super();
+    this.message = `${urlsByStory.size} ${urlsByStory.size === 1 ? 'story' : 'stories'} requested remote URLs without fixture:\n${[
+      ...urlsByStory,
+    ]
+      .map(([name, urls]) => `  - ${name}: ${[...urls].join(', ')}`)
+      .join('\n')}`;
+  }
+}
