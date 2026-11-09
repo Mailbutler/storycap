@@ -31,6 +31,7 @@ Changes on top of prantlf/storycap 8.1.1:
 - In managed mode, fall back to the CLI screenshot options when a story never triggers the capture.
 - `--failOnStoryError` (on by default): fail the run when a story throws while rendering or shows Storybook's error display, instead of capturing a blank or broken screenshot. Use `--no-failOnStoryError` to only warn.
 - `--captureStabilityStrategy image-stable`: take screenshots until several consecutive ones are identical, instead of waiting for `requestIdleCallback`, which headless Chrome often doesn't grant. See the `--stableScreenshot*`, `--idleTimeoutMs` and `--unstableScreenshotAttemptsDir` options below.
+- `--remoteFixturesDir <dir>`: serve requests to other hosts than Storybook from local copies at `<dir>/<host><path>`, so captures don't depend on remote content or load timing. The query string is ignored. A URL without an extension also matches a fixture with one added (e.g. `fonts.googleapis.com/css2.css`), which sets its content type. With `--failOnRemoteRequest`, remote requests without a fixture are blocked and fail the run, except for hosts listed with `--allowRemoteHost`. Once the interception is set up, the browser cache is cleared and the preview loaded again, and the cache stays disabled while the interception is active.
 - Press Shift before each capture, so a `click` variant doesn't stop the `:focus-visible` styles of later stories from matching.
 - Actually close the capture browsers when the run ends.
 
@@ -380,6 +381,12 @@ Options:
                                                                                               [boolean] [default: false]
       --failOnStoryError                    Fail the run if a story renders Storybook's error display instead of the
                                             story. Use --no-failOnStoryError to only warn.     [boolean] [default: true]
+      --remoteFixturesDir                   Directory with local copies of remote resources, laid out as <host><path>.
+                                            Requests to other hosts than Storybook are served from it.
+                                                                                                  [string] [default: ""]
+      --failOnRemoteRequest                 Fail the run if a story requests another host than Storybook and there is no
+                                            fixture for it.                                   [boolean] [default: false]
+      --allowRemoteHost                     Host that may still be requested from the network.     [array] [default: []]
       --serverCmd                           Command line to launch Storybook server.              [string] [default: ""]
       --serverTimeout                       Timeout [msec] for starting Storybook server.      [number] [default: 60000]
       --shard                               The sharding options for this run. In the format
