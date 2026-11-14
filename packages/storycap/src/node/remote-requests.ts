@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { HTTPRequest, Page } from 'puppeteer-core';
+import type { CDPSession, HTTPRequest, Page, Protocol, Target } from 'puppeteer-core';
 import { Logger } from './logger.js';
 
 const contentTypes: Record<string, string> = {
@@ -102,11 +102,22 @@ export async function findFixture(fixturesDir: string, url: URL) {
 
 /**
  *
+ * What to do with a request, see {@link RemoteRequestInterceptor}.
+ *
+ **/
+type RequestResolution = { action: 'continue' } | { action: 'respond'; fixturePath: string } | { action: 'block' };
+
+/**
+ *
  * Serves requests that leave the Storybook host from local fixtures, so captures never depend on remote hosts
  * (load timing, content they generate on the fly). Remote requests without a fixture are passed through, or aborted
  * and recorded with `failOnRemoteRequest`, so the run can fail on them.
  *
  * @remarks
+ *
+ * This covers the requests of the page and of the service workers in its browser. A service worker that answers the
+ * page's requests itself, e.g. MSW's, fetches the ones it does not mock from the worker, where the page's interception
+ * does not see them.
  *
  * Enabling request interception disables the page's cache, so local requests are repeated for every story.
  *
@@ -127,13 +138,20 @@ export class RemoteRequestInterceptor {
 
   /**
    *
-   * Starts intercepting the page's requests. Call it before the page loads anything, so no remote response is cached.
+   * Starts intercepting the requests of the page and of service workers started later. Call it before the page loads
+   * anything, so no remote response is cached and no service worker runs yet.
    *
    **/
   async init() {
+    this.page.browser().on('targetcreated', (target: Target) => {
+      if (target.type() !== 'service_worker') return;
+      this.interceptServiceWorker(target).catch(error =>
+        this.logger.debug('Could not intercept the requests of service worker:', target.url(), error),
+      );
+    });
     await this.page.setRequestInterception(true);
     this.page.on('request', request => {
-      this.handle(request).catch(error => {
+      this.handlePageRequest(request).catch(error => {
         this.logger.debug('Could not handle request:', request.url(), error);
         if (!request.isInterceptResolutionHandled()) request.continue().catch(() => {});
       });
@@ -152,40 +170,79 @@ export class RemoteRequestInterceptor {
     return urls;
   }
 
-  private async handle(request: HTTPRequest) {
+  private async handlePageRequest(request: HTTPRequest) {
     if (request.isInterceptResolutionHandled()) return;
 
-    const url = new URL(request.url());
-    const isRemote = (url.protocol === 'http:' || url.protocol === 'https:') && url.host !== this.localHost;
-    if (!isRemote || this.opt.allowRemoteHosts.includes(url.hostname)) {
-      await request.continue();
-      return;
-    }
-
-    const fixturePath =
-      this.opt.remoteFixturesDir && request.method() === 'GET'
-        ? await findFixture(this.opt.remoteFixturesDir, url)
-        : null;
-    if (fixturePath) {
+    const resolution = await this.resolve(request.url(), request.method());
+    if (resolution.action === 'respond') {
       await request.respond({
         status: 200,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        contentType: contentTypeForFixture(fixturePath),
-        body: await fs.readFile(fixturePath),
+        contentType: contentTypeForFixture(resolution.fixturePath),
+        body: await fs.readFile(resolution.fixturePath),
       });
-      return;
+    } else if (resolution.action === 'block') {
+      await request.abort('blockedbyclient');
+    } else {
+      await request.continue();
     }
+  }
+
+  private async interceptServiceWorker(target: Target) {
+    const session = await target.createCDPSession();
+    session.on('Fetch.requestPaused', event => {
+      this.handleServiceWorkerRequest(session, event).catch(error => {
+        this.logger.debug('Could not handle service worker request:', event.request.url, error);
+        session.send('Fetch.continueRequest', { requestId: event.requestId }).catch(() => {});
+      });
+    });
+    await session.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
+  }
+
+  private async handleServiceWorkerRequest(session: CDPSession, event: Protocol.Fetch.RequestPausedEvent) {
+    const { requestId } = event;
+    const resolution = await this.resolve(event.request.url, event.request.method);
+    if (resolution.action === 'respond') {
+      const contentType = contentTypeForFixture(resolution.fixturePath);
+      await session.send('Fetch.fulfillRequest', {
+        requestId,
+        responseCode: 200,
+        responseHeaders: [
+          { name: 'Access-Control-Allow-Origin', value: '*' },
+          ...(contentType ? [{ name: 'Content-Type', value: contentType }] : []),
+        ],
+        body: (await fs.readFile(resolution.fixturePath)).toString('base64'),
+      });
+    } else if (resolution.action === 'block') {
+      await session.send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
+    } else {
+      await session.send('Fetch.continueRequest', { requestId });
+    }
+  }
+
+  /**
+   *
+   * Decides how to answer a request, and records or warns about remote requests without a fixture.
+   *
+   **/
+  private async resolve(requestUrl: string, method: string): Promise<RequestResolution> {
+    const url = new URL(requestUrl);
+    const isRemote = (url.protocol === 'http:' || url.protocol === 'https:') && url.host !== this.localHost;
+    if (!isRemote || this.opt.allowRemoteHosts.includes(url.hostname)) return { action: 'continue' };
+
+    const fixturePath =
+      this.opt.remoteFixturesDir && method === 'GET' ? await findFixture(this.opt.remoteFixturesDir, url) : null;
+    if (fixturePath) return { action: 'respond', fixturePath };
 
     const urlWithoutQuery = `${url.origin}${url.pathname}`;
     if (this.opt.failOnRemoteRequest) {
       this.unmappedUrls.add(urlWithoutQuery);
-      await request.abort('blockedbyclient');
-      return;
+      return { action: 'block' };
     }
     if (!this.warnedUrls.has(urlWithoutQuery)) {
       this.warnedUrls.add(urlWithoutQuery);
       this.logger.warn(`Remote request without fixture: ${this.logger.color.yellow(urlWithoutQuery)}`);
     }
-    await request.continue();
+    return { action: 'continue' };
   }
 }
