@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import path from 'path';
 import type { ConsoleMessage, Viewport } from 'puppeteer-core';
 import {
+  BaseBrowser,
   Story,
   StorybookConnection,
   StoryPreviewBrowser,
@@ -10,6 +11,8 @@ import {
   sleep,
   getDeviceDescriptors,
 } from '@prantlf/storycrawler';
+// not exported from the package's entry, needed to load the preview like `StoryPreviewBrowser.boot`
+import { completeIframeUrl } from '@prantlf/storycrawler/lib/url-utils.js';
 
 import { MainOptions, RunMode } from './types.js';
 import { VariantKey, ScreenshotOptions, StrictScreenshotOptions, Exposed } from '../shared/types.js';
@@ -150,17 +153,10 @@ export class CapturingBrowser extends StoryPreviewBrowser {
    *
    **/
   async boot() {
-    await super.boot();
     if (shouldInterceptRemoteRequests(this.opt)) {
-      this.remoteRequestInterceptor = await new RemoteRequestInterceptor(
-        this.page,
-        this.connection.url,
-        this.opt,
-        this.opt.logger,
-      ).init();
-      // The preview was loaded before the interception was set up, so load it again to also serve its own remote
-      // resources (e.g. web fonts in the preview head) from fixtures.
-      await this.page.reload({ timeout: 60_000, waitUntil: 'domcontentloaded' });
+      await this.bootWithRemoteRequestInterceptor();
+    } else {
+      await super.boot();
     }
     // The preview is already loaded at this point, so watch it now and in every document loaded later.
     await this.page.evaluateOnNewDocument(watchStoryErrorsInPage);
@@ -169,6 +165,32 @@ export class CapturingBrowser extends StoryPreviewBrowser {
     await this.addStyles();
     this.resourceWatcher = new ResourceWatcher(this.page).init();
     return this;
+  }
+
+  /**
+   *
+   * Boots like {@link StoryPreviewBrowser.boot}, but intercepts requests before the preview is loaded, so its own remote
+   * resources (e.g. web fonts in the preview head) are served from fixtures too.
+   *
+   * @remarks
+   *
+   * Loading the preview again once the interception is set up races with previews that reload themselves while they
+   * start, e.g. MSW reloads a page that its service worker, registered by the first load, does not control yet. The
+   * setup after booting then fails with a destroyed execution context.
+   *
+   **/
+  private async bootWithRemoteRequestInterceptor() {
+    await BaseBrowser.prototype.boot.call(this);
+    this.remoteRequestInterceptor = await new RemoteRequestInterceptor(
+      this.page,
+      this.connection.url,
+      this.opt,
+      this.opt.logger,
+    ).init();
+    await this.page.goto(
+      completeIframeUrl(this.connection.url, 'iframe.html?selectedKind=scszisui&selectedStory=scszisui'),
+      { timeout: 60_000, waitUntil: 'domcontentloaded' },
+    );
   }
 
   /**
