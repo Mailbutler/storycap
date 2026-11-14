@@ -125,12 +125,12 @@ export class RemoteRequestInterceptor {
     this.localHost = new URL(storybookUrl).host;
   }
 
+  /**
+   *
+   * Starts intercepting the page's requests. Call it before the page loads anything, so no remote response is cached.
+   *
+   **/
   async init() {
-    // Responses loaded before the interception, e.g. a remote stylesheet in the preview head, would otherwise still be
-    // served from the memory cache when the page is loaded again, bypassing the fixtures.
-    const session = await this.page.createCDPSession();
-    await session.send('Network.clearBrowserCache');
-    await session.detach();
     await this.page.setRequestInterception(true);
     this.page.on('request', request => {
       this.handle(request).catch(error => {
